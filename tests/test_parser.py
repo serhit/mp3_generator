@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from telc_audio.cli import discover_scenarios
 from telc_audio.parser import ScenarioError, count_words, parse_pause, parse_scenario
 
 
@@ -60,7 +61,14 @@ Bitte wiederholen.
             with self.assertRaises(ScenarioError):
                 parse_scenario(path)
 
+    def test_discovery_ignores_regular_markdown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "README.md").write_text("# Documentation\n", encoding="utf-8")
+            scenario = root / "topic.md"
+            scenario.write_text("+++\ntitle = 'Topic'\n+++\n", encoding="utf-8")
+            self.assertEqual(discover_scenarios(root), [scenario])
+
 
 if __name__ == "__main__":
     unittest.main()
-

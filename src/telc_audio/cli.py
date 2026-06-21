@@ -6,6 +6,21 @@ from .generator import build_topic_sync, embed_cover
 from .parser import ScenarioError, parse_scenario
 
 
+def discover_scenarios(root: Path) -> list[Path]:
+    scenarios = []
+    for path in root.rglob("*.md"):
+        if "_prototype" in path.parts:
+            continue
+        try:
+            with path.open(encoding="utf-8") as source:
+                first_line = source.readline().strip()
+        except OSError:
+            continue
+        if first_line == "+++":
+            scenarios.append(path)
+    return sorted(scenarios)
+
+
 def validate(path: Path) -> None:
     topic = parse_scenario(path)
     print(f"OK: {path} ({len(topic.blocks)} audio blocks)")
@@ -46,9 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "build":
             build(args.scenario, args.cover, args.output_dir)
         elif args.command == "build-all":
-            scenarios = sorted(
-                path for path in args.root.rglob("*.md") if "_prototype" not in path.parts
-            )
+            scenarios = discover_scenarios(args.root)
             if not scenarios:
                 raise ScenarioError(f"No Markdown scenarios found under {args.root}")
             for scenario in scenarios:
