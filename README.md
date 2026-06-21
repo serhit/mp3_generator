@@ -24,6 +24,8 @@ telc-audio build-all "../Deutsch A1 TELC" --cover path/to/cover.jpg
 telc-audio embed-cover "../Deutsch A1 TELC" --cover path/to/cover.jpg
 ```
 
+Runnable Bash and PowerShell examples are available under `examples/`.
+
 ## Scenario format
 
 The file starts with TOML front matter. Audio blocks contain one spoken
