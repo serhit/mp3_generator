@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "telc-a1-audio-generator"
+version = "0.1.0"
+description = "Generate TELC A1 study audio and synchronized transcripts from Markdown"
+requires-python = ">=3.12"
+dependencies = [
+  "edge-tts==7.2.8",
+  "mutagen==1.47.0",
+]
+
+[project.scripts]
+telc-audio = "telc_audio.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
