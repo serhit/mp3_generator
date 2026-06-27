@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .generator import build_topic_sync, embed_cover
+from .generator import build_topic_sync, embed_cover, update_id3_metadata
 from .parser import ScenarioError, parse_scenario
 
 
@@ -38,6 +38,22 @@ def build(
         print(f"  {output}")
 
 
+def retag_metadata(root: Path) -> None:
+    scenarios = discover_scenarios(root)
+    if not scenarios:
+        raise ScenarioError(f"No Markdown scenarios found under {root}")
+    updated = 0
+    for scenario in scenarios:
+        topic = parse_scenario(scenario)
+        mp3_path = scenario.parent / f"{topic.output_name}.mp3"
+        if not mp3_path.is_file():
+            raise RuntimeError(f"Missing MP3 for {scenario}: {mp3_path}")
+        update_id3_metadata(mp3_path, topic)
+        updated += 1
+        print(f"Updated metadata: {mp3_path}")
+    print(f"Updated metadata for {updated} MP3 files")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="telc-audio")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -53,6 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     cover_parser = commands.add_parser("embed-cover")
     cover_parser.add_argument("target", type=Path)
     cover_parser.add_argument("--cover", type=Path, required=True)
+    retag_parser = commands.add_parser("retag-metadata")
+    retag_parser.add_argument("root", type=Path)
     args = parser.parse_args(argv)
 
     try:
@@ -67,6 +85,8 @@ def main(argv: list[str] | None = None) -> int:
             for scenario in scenarios:
                 build(scenario, args.cover)
             print(f"Built {len(scenarios)} scenarios")
+        elif args.command == "retag-metadata":
+            retag_metadata(args.root)
         else:
             if args.target.is_file():
                 mp3_files = [args.target]

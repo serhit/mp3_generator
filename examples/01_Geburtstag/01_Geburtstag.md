@@ -36,7 +36,7 @@ Danach spielen wir zusammen. {point=3}
 Kannst du kommen?
 Bitte antworte mir.
 Viele Grüße. {count=false}
-Sergey. {count=false pause="1.5s"}
+Dein Vorname. {count=false pause="1.5s"}
 :::
 
 :::audio id="repeat" kind="repeat" rate="-15%" default_pause="3s"
@@ -54,6 +54,6 @@ Danach spielen wir zusammen.
 Kannst du kommen?
 Bitte antworte mir.
 Viele Grüße.
-Sergey.
+Dein Vorname.
 :::
 

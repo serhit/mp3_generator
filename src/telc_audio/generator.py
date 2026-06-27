@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -8,7 +9,25 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import edge_tts
-from mutagen.id3 import APIC, ID3, TALB, TIT2, TLAN, TPE1, SYLT, USLT
+from mutagen.id3 import (
+    APIC,
+    COMM,
+    ID3,
+    TALB,
+    TCMP,
+    TCOM,
+    TCON,
+    TDRC,
+    TIT1,
+    TIT2,
+    TLAN,
+    TPE1,
+    TPE2,
+    TPOS,
+    TRCK,
+    SYLT,
+    USLT,
+)
 
 from .model import AudioBlock, Topic, Utterance
 
@@ -18,6 +37,29 @@ class TimedLine:
     text: str
     start_ms: int
     block_id: str
+
+
+DEFAULT_ALBUM_ARTIST = "Deutsch A1 TELC"
+DEFAULT_COMPOSER = "Deutsch A1 TELC"
+DEFAULT_GROUPING = "Deutsch A1 TELC / TELC A1 Schreiben"
+DEFAULT_GENRE = "Education"
+DEFAULT_YEAR = "2026"
+DEFAULT_TRACK_TOTAL = 20
+DEFAULT_DISC_NUMBER = "1"
+DEFAULT_DISC_TOTAL = "1"
+DEFAULT_COMMENT = "TELC A1 Schreiben: Aufgabe, Musterantwort und langsame Wiederholung."
+APPLE_MUSIC_FRAME_PREFIXES = (
+    "TPE2",
+    "TCOM",
+    "TIT1",
+    "TCON",
+    "TDRC",
+    "TRCK",
+    "TPOS",
+    "TCMP",
+    "COMM",
+)
+TRACK_NUMBER_RE = re.compile(r"^(\d+)")
 
 
 def require_lame() -> str:
@@ -131,10 +173,53 @@ def combine_wavs(paths: list[Path], target_path: Path) -> list[int]:
     return offsets_ms
 
 
+TOPIC_PREFIXES = {
+    "Erstens:": "1.",
+    "Zweitens:": "2.",
+    "Drittens:": "3.",
+}
+TASK_LABELS = {"Erster Teil.", "Die Aufgabe.", "Schreiben Sie."}
+TRANSCRIPT_PLACEHOLDERS = {
+    "Dein Vorname.": "[Dein Vorname].",
+    "Dein Vorname Familienname.": "[Dein Vorname Familienname].",
+}
+
+
+def transcript_line(text: str) -> str:
+    return TRANSCRIPT_PLACEHOLDERS.get(text, text)
+
+
 def transcript_text(topic: Topic) -> str:
-    sections = []
-    for block in topic.blocks:
-        sections.append("\n".join(utterance.text for utterance in block.utterances))
+    task = next((block for block in topic.blocks if block.kind == "task"), None)
+    answer = next(block for block in topic.blocks if block.kind == "answer")
+    sections: list[str] = []
+
+    if task is not None:
+        task_lines = []
+        topic_lines = []
+        for utterance in task.utterances:
+            if utterance.text in TASK_LABELS:
+                continue
+            topic_prefix = next(
+                (prefix for prefix in TOPIC_PREFIXES if utterance.text.startswith(prefix)),
+                None,
+            )
+            if topic_prefix is None:
+                task_lines.append(transcript_line(utterance.text))
+            else:
+                topic_lines.append(
+                    transcript_line(
+                        utterance.text.replace(
+                            topic_prefix, TOPIC_PREFIXES[topic_prefix], 1
+                        )
+                    )
+                )
+        if task_lines:
+            sections.append("\n".join(task_lines))
+        if topic_lines:
+            sections.append("\n".join(topic_lines))
+
+    sections.append("\n".join(transcript_line(utterance.text) for utterance in answer.utterances))
     return "\n\n".join(sections) + "\n"
 
 
@@ -188,6 +273,64 @@ def embed_cover(mp3_path: Path, cover_path: Path) -> None:
     tags.save(mp3_path, v2_version=3)
 
 
+def metadata_text(topic: Topic, key: str, default: str) -> str:
+    return str(topic.metadata.get(key, default))
+
+
+def topic_track_number(topic: Topic) -> int:
+    if "track_number" in topic.metadata:
+        return int(topic.metadata["track_number"])
+    match = TRACK_NUMBER_RE.match(topic.output_name)
+    if not match:
+        raise RuntimeError(f"Cannot derive track number from output: {topic.output_name}")
+    return int(match.group(1))
+
+
+def topic_track_total(topic: Topic) -> int:
+    return int(topic.metadata.get("track_total", DEFAULT_TRACK_TOTAL))
+
+
+def add_apple_music_id3_tags(tags: ID3, topic: Topic) -> None:
+    for prefix in APPLE_MUSIC_FRAME_PREFIXES:
+        tags.delall(prefix)
+
+    track_number = topic_track_number(topic)
+    track_total = topic_track_total(topic)
+    disc_number = metadata_text(topic, "disc_number", DEFAULT_DISC_NUMBER)
+    disc_total = metadata_text(topic, "disc_total", DEFAULT_DISC_TOTAL)
+
+    tags.add(TPE2(encoding=1, text=metadata_text(topic, "album_artist", DEFAULT_ALBUM_ARTIST)))
+    tags.add(TCOM(encoding=1, text=metadata_text(topic, "composer", DEFAULT_COMPOSER)))
+    tags.add(TIT1(encoding=1, text=metadata_text(topic, "grouping", DEFAULT_GROUPING)))
+    tags.add(TCON(encoding=1, text=metadata_text(topic, "genre", DEFAULT_GENRE)))
+    tags.add(TDRC(encoding=1, text=metadata_text(topic, "year", DEFAULT_YEAR)))
+    tags.add(TRCK(encoding=1, text=f"{track_number}/{track_total}"))
+    tags.add(TPOS(encoding=1, text=f"{disc_number}/{disc_total}"))
+    tags.add(TCMP(encoding=1, text="0"))
+    tags.add(
+        COMM(
+            encoding=1,
+            lang="eng",
+            desc="",
+            text=metadata_text(topic, "comments", DEFAULT_COMMENT),
+        )
+    )
+
+
+def update_id3_metadata(mp3_path: Path, topic: Topic) -> None:
+    tags = ID3(mp3_path)
+    tags.delall("TIT2")
+    tags.delall("TPE1")
+    tags.delall("TALB")
+    tags.delall("TLAN")
+    tags.add(TIT2(encoding=1, text=str(topic.metadata["title"])))
+    tags.add(TPE1(encoding=1, text=str(topic.metadata["artist"])))
+    tags.add(TALB(encoding=1, text=str(topic.metadata["album"])))
+    tags.add(TLAN(encoding=1, text=str(topic.metadata["language"])))
+    add_apple_music_id3_tags(tags, topic)
+    tags.save(mp3_path, v2_version=3)
+
+
 def add_id3_tags(
     mp3_path: Path,
     topic: Topic,
@@ -200,6 +343,7 @@ def add_id3_tags(
     tags.add(TPE1(encoding=1, text=str(topic.metadata["artist"])))
     tags.add(TALB(encoding=1, text=str(topic.metadata["album"])))
     tags.add(TLAN(encoding=1, text=str(topic.metadata["language"])))
+    add_apple_music_id3_tags(tags, topic)
     language = str(topic.metadata["lyrics_language"])
     tags.add(USLT(encoding=1, lang=language, desc="Transcript", text=transcript))
     tags.add(

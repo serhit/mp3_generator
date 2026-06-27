@@ -5,11 +5,39 @@ from pathlib import Path
 from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 
+from telc_audio.generator import (
+    DEFAULT_ALBUM_ARTIST,
+    DEFAULT_COMMENT,
+    DEFAULT_COMPOSER,
+    DEFAULT_DISC_NUMBER,
+    DEFAULT_DISC_TOTAL,
+    DEFAULT_GENRE,
+    DEFAULT_GROUPING,
+    DEFAULT_YEAR,
+    topic_track_number,
+    topic_track_total,
+)
 from telc_audio.parser import parse_scenario
 
 
 LRC_RE = re.compile(r"^\[(\d+):(\d+)\.(\d+)](.*)$")
-REQUIRED_PREFIXES = ("TIT2", "TPE1", "TALB", "TLAN", "USLT", "SYLT")
+REQUIRED_PREFIXES = (
+    "TIT2",
+    "TPE1",
+    "TALB",
+    "TLAN",
+    "TPE2",
+    "TCOM",
+    "TIT1",
+    "TCON",
+    "TDRC",
+    "TRCK",
+    "TPOS",
+    "TCMP",
+    "COMM",
+    "USLT",
+    "SYLT",
+)
 
 
 def lrc_milliseconds(line: str) -> int | None:
@@ -48,6 +76,25 @@ def verify(root: Path, cover_path: Path | None = None) -> None:
         for prefix in REQUIRED_PREFIXES:
             if not tags.getall(prefix):
                 raise AssertionError(f"Missing {prefix} in {mp3_path}")
+        expected = {
+            "TPE2": DEFAULT_ALBUM_ARTIST,
+            "TCOM": DEFAULT_COMPOSER,
+            "TIT1": DEFAULT_GROUPING,
+            "TCON": DEFAULT_GENRE,
+            "TDRC": DEFAULT_YEAR,
+            "TRCK": f"{topic_track_number(topic)}/{topic_track_total(topic)}",
+            "TPOS": f"{DEFAULT_DISC_NUMBER}/{DEFAULT_DISC_TOTAL}",
+            "TCMP": "0",
+        }
+        for frame, value in expected.items():
+            actual = str(tags[frame])
+            if actual != value:
+                raise AssertionError(
+                    f"Unexpected {frame} in {mp3_path}: {actual!r} != {value!r}"
+                )
+        comments = [text for frame in tags.getall("COMM") for text in frame.text]
+        if DEFAULT_COMMENT not in comments:
+            raise AssertionError(f"Missing Apple Music comment in {mp3_path}")
         if cover_path is not None:
             pictures = tags.getall("APIC")
             if len(pictures) != 1:

@@ -35,7 +35,7 @@ Ich brauche auch einige Adressen von günstigen Hotels im Stadtzentrum. {point=3
 Können Sie mir außerdem einen Stadtplan schicken?
 Vielen Dank für Ihre Hilfe.
 Mit freundlichen Grüßen. {count=false}
-Sergey Khitrin. {count=false pause="1.5s"}
+Dein Vorname Familienname. {count=false pause="1.5s"}
 :::
 
 :::audio id="repeat" kind="repeat" rate="-15%" default_pause="3s"
@@ -51,5 +51,5 @@ Bitte schicken Sie mir Adressen von günstigen Hotels. {pause="5s"}
 Können Sie mir außerdem einen Stadtplan schicken? {pause="5s"}
 Vielen Dank für Ihre Hilfe.
 Mit freundlichen Grüßen. {pause="4s"}
-Sergey Khitrin.
+Dein Vorname Familienname.
 :::

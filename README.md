@@ -1,7 +1,7 @@
 # TELC A1 Audio Generator
 
-Generate a continuous neural-voice MP3, a plain transcript, and synchronized
-LRC lyrics from a structured Markdown scenario.
+Generate a continuous neural-voice MP3, an exam-style plain transcript, and
+synchronized LRC lyrics from a structured Markdown scenario.
 
 ## Dependencies
 
@@ -160,7 +160,7 @@ output = "01_Geburtstag"
 Liebe Anna. {count=false}
 Die Party beginnt um achtzehn Uhr. {point=1}
 Viele Grüße. {count=false}
-Sergey. {count=false}
+Dein Vorname. {count=false}
 :::
 ```
 
@@ -171,8 +171,14 @@ Supported line attributes:
 - `point=1` or `point="1,2"`: mark the TELC prompt points answered by the line.
 
 The `answer` block must contain 35-45 counted words and cover points 1, 2, and
-3. `--cover` is required and embeds a JPEG or PNG as the front-cover `APIC`
-frame. The generated MP3 includes title, artist, album, language, APIC, USLT,
-and SYLT ID3 frames. Apple Music and Yandex Music do not guarantee display of
-embedded lyrics for personally uploaded tracks; the `.txt` and `.lrc` files
-are kept as portable transcript sources.
+3. Sample signatures should use placeholders instead of a real learner name:
+`Dein Vorname.` for informal letters and `Dein Vorname Familienname.` for
+formal letters. `--cover` is required and embeds a JPEG or PNG as the
+front-cover `APIC` frame. The generated MP3 includes title, artist, album,
+language, APIC, USLT, and SYLT ID3 frames. TXT and USLT use the task, numbered
+prompts, and final letter form; learner placeholders may appear there in
+brackets such as `[Dein Vorname]`. LRC and SYLT remain synchronized with the
+spoken lines and keep the natural spoken form without brackets. Apple Music and
+Yandex Music do not guarantee display of embedded lyrics for personally
+uploaded tracks; the `.txt` and `.lrc` files are kept as portable transcript
+sources.

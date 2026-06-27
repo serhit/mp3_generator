@@ -33,7 +33,7 @@ class ParserTests(unittest.TestCase):
 Liebe Anna. {{count=false}}
 {words}. {{point="1,2,3"}}
 Viele Grüße. {{count=false}}
-Sergey. {{count=false}}
+Dein Vorname. {{count=false}}
 :::
 :::audio id="repeat" kind="repeat" rate="-15%"
 Bitte wiederholen.
